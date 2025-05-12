@@ -4,13 +4,13 @@ from datetime import time as dt_time
 import pytz
 
 # --- Настройки API (Замените!) ---
-CTID = "u3BI3X0Xm4ERZiAgC9peMSAvs3EeXJl7lJSPIj8kxUg"
-CLIENT_ID = "14958_PM2DzyJAWTZaPY93Nt9GCI1vBGj36H6HPhijiAnBOiTUoVCg1W"
-CLIENT_SECRET = "FFgevKzzYTHKWeHmLjwvL9zCWMgMEeGj0taqzmW44G8L8HSWxs"
-ACCOUNT_ID = "7378494" # Торговый счет
+# CTID = "YOUR_CTID" # CTID не используется в текущей схеме авторизации, можно оставить пустым или закомментировать
+CLIENT_ID = "14958_PM2Dzy/AWTZaPY93Nt9GCI1vBGj36H6HPhijiAnBOiTUoVCg1W" # Вставьте ваш Client ID от приложения 1H3M SIGNAL
+CLIENT_SECRET = "FFgevKzzYTHKWeHml.jwwl9zCWMgMEeGj0taqzmW44G8L8HSWxs" # Вставьте ваш Secret от приложения 1H3M SIGNAL
+ACCOUNT_ID = "7378494" # Вставьте номер вашего торгового счета
 
 # --- Торговые параметры ---
-SYMBOL = "GER40.cash" # Или точное название символа в вашем брокере
+SYMBOL = "GER40" # Или точное название символа в вашем брокере
 TIMEFRAME_CONTEXT_H4 = "H4"
 TIMEFRAME_CONTEXT_H1 = "H1"
 TIMEFRAME_ENTRY = "M1" # Таймфрейм для получения актуальной цены (можно H1)
@@ -36,4 +36,3 @@ HISTORICAL_DATA_COUNT_ENTRY = 5 # Кол-во свечей M1/H1 для теку
 
 # --- Начальные значения (могут не использоваться, если API дает реальные) ---
 INITIAL_ACCOUNT_BALANCE = 10000 # Примерный баланс для расчета, если API недоступен
-
