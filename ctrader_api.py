@@ -140,15 +140,21 @@ def connect_to_ctrader():
     api_port = 5035
     print(f"Подключение к {api_host}:{api_port}...")
 
-    # Инициализируем протокол с хостом и портом
+    # Создаем протокол
     protocol = TcpProtocol()
-    protocol.host = api_host
-    protocol.port = api_port
     
-    # Создаем клиента с протоколом
-    client = Client(protocol=protocol)
-    # Регистрируем обработчик ответов напрямую
-    client.register_callback(request_callback)
+    # Создаем клиента
+    client = Client(api_host, api_port, protocol)
+    
+    # Регистрируем коллбэки
+    client.setConnectedCallback(lambda c: print("Соединение установлено"))
+    client.setDisconnectedCallback(lambda c, r: print(f"Соединение разорвано: {r}"))
+    client.setMessageReceivedCallback(request_callback)
+    
+    # Начинаем подключение
+    client.startService()
+    
+    return client
 
     try:
         client.connect()
