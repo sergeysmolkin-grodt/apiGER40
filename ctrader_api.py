@@ -737,23 +737,7 @@ if __name__ == "__main__":
         else:
              print("Не удалось получить текущую цену.")
 
-        # !!! ОСТОРОЖНО: Тест размещения ордера !!!
-        # !!! Раскомментируйте только если вы понимаете риски !!!
-        # print("\nТест: Размещение рыночного ордера (требует раскомментирования)...")
-        # test_volume = 0.01
-        # test_sl = current_price - 10.0 if current_price else None # Пример SL
-        # test_tp = current_price + 20.0 if current_price else None # Пример TP
-        # if current_price and test_sl and test_tp:
-        #     print(f"Попытка разместить BUY ордер {test_volume} лота {config.SYMBOL}...")
-        #     success = place_market_order(test_client, config.SYMBOL, "BUY", test_volume, test_sl, test_tp, "API Test Order")
-        #     if success:
-        #         print("Тестовый ордер успешно размещен (проверьте терминал!).")
-        #     else:
-        #         print("Не удалось разместить тестовый ордер.")
-        # else:
-        #      print("Невозможно разместить тестовый ордер (нет цены или SL/TP).")
-
-        # 5. Отключение
+    
         print("\nТест: Отключение...")
         disconnect_from_ctrader()
     else:
