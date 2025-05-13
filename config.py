@@ -4,7 +4,7 @@ from datetime import time as dt_time
 import pytz
 
 # --- Настройки API (Замените!) ---
-# CTID = "YOUR_CTID" # CTID не используется в текущей схеме авторизации, можно оставить пустым или закомментировать
+CTID = "YOUR_CTID" # CTID не используется в текущей схеме авторизации, можно оставить пустым или закомментировать
 CLIENT_ID = "14958_PM2Dzy/AWTZaPY93Nt9GCI1vBGj36H6HPhijiAnBOiTUoVCg1W" # Вставьте ваш Client ID от приложения 1H3M SIGNAL
 CLIENT_SECRET = "FFgevKzzYTHKWeHml.jwwl9zCWMgMEeGj0taqzmW44G8L8HSWxs" # Вставьте ваш Secret от приложения 1H3M SIGNAL
 ACCOUNT_ID = "7377598" # Вставьте номер вашего торгового счета

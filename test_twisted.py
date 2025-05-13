@@ -1,7 +1,8 @@
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
 # --- ИСПРАВЛЕННЫЕ ИМПОРТЫ ---
 from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes
-from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoErrorRes, ProtoHeartbeatEvent # Добавлен ProtoHeartbeatEvent
+from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoErrorRes, ProtoHeartbeatEvent, ProtoMessage
+from ctrader_open_api.messages.OpenApiCommonModelMessages_pb2 import ProtoErrorCode
 # -----------------------------
 from twisted.internet import reactor, defer
 import traceback
@@ -23,10 +24,22 @@ def on_error(failure):
 def on_app_auth_response(client_instance, response_message):
     print("\nApplication Auth Response Received:")
     print(Protobuf.extract(response_message))
-    # Проверяем, успешна ли авторизация
+    
+    # Проверяем тип сообщения
     if response_message.payloadType == ProtoOAApplicationAuthRes().payloadType:
-        print("Авторизация приложения УСПЕШНА!")
-        # Здесь можно было бы продолжить с авторизацией счета, если нужно
+        response = ProtoOAApplicationAuthRes()
+        try:
+            response.ParseFromString(response_message.payload)
+            print("Response parsed successfully")
+            
+            # Проверяем ошибку в ответе
+            if hasattr(response, 'errorCode') and response.errorCode != ProtoErrorCode().OK:
+                print(f"Ошибка авторизации: {response.errorCode} - {response.description}")
+            else:
+                print("Авторизация приложения УСПЕШНА!")
+        except Exception as e:
+            print(f"Ошибка при парсинге ответа: {e}")
+            print("Авторизация приложения НЕУДАЧНА")
     else:
         print("Ошибка авторизации приложения (неверный тип ответа или ошибка).")
 
@@ -40,10 +53,16 @@ def on_connected_callback(client_instance):
     request = ProtoOAApplicationAuthReq()
     request.clientId = APP_CLIENT_ID
     request.clientSecret = APP_CLIENT_SECRET
-    print(f"Sending App Auth Request: ClientID={request.clientId[0:10]}...") # Выводим только часть ID
+    
+    # Create a message wrapper with the correct structure
+    message = ProtoMessage()
+    message.payloadType = ProtoOAApplicationAuthReq().payloadType
+    message.payload = request.SerializeToString()
+    
+    print(f"Sending App Auth Request: ClientID={request.clientId[0:10]}...")
 
     try:
-        deferred_obj = client_instance.send(request)
+        deferred_obj = client_instance.send(message)
         deferred_obj.addCallbacks(
             lambda response: on_app_auth_response(client_instance, response),
             errback=on_error
