@@ -1,74 +1,85 @@
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
-# --- ИСПРАВЛЕННЫЕ ИМПОРТЫ ---
 from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoErrorRes, ProtoHeartbeatEvent, ProtoMessage
 from ctrader_open_api.messages.OpenApiCommonModelMessages_pb2 import ProtoErrorCode
-# -----------------------------
 from twisted.internet import reactor, defer
 import traceback
-import time # Добавлен импорт time для reactor.callLater
+import time
+import config # <--- Импортируем ваш config.py
 
-# Ваши учетные данные (замените!)
-APP_CLIENT_ID = "14958_PM2Dzy/AWTZaPY93Nt9GCI1vBGj36H6HPhijiAnBOiTUoVCg1W" # Из вашего config.py или скриншота
-APP_CLIENT_SECRET = "FFgevKzzYTHKWeHml.jwwl9zCWMgMEeGj0taqzmW44G8L8HSWxs" # Из вашего config.py или скриншота
+# --- Используем учетные данные из config.py ---
+APP_CLIENT_ID = config.CLIENT_ID
+APP_CLIENT_SECRET = config.CLIENT_SECRET
+# ---------------------------------------------
 
 HOST = EndPoints.PROTOBUF_LIVE_HOST # Для реального счета
 PORT = EndPoints.PROTOBUF_PORT
 
 def on_error(failure):
-    print(f"Message Error: {failure.getErrorMessage()}")
+    print(f"Message Error (Twisted Deferred errback): {failure.getErrorMessage()}")
     traceback.print_exception(type(failure.value), failure.value, failure.getTracebackObject())
     if reactor.running:
         reactor.stop()
 
-def on_app_auth_response(client_instance, response_message):
-    print("\nApplication Auth Response Received:")
-    print(Protobuf.extract(response_message))
-    
-    # Проверяем тип сообщения
-    if response_message.payloadType == ProtoOAApplicationAuthRes().payloadType:
-        response = ProtoOAApplicationAuthRes()
-        try:
-            response.ParseFromString(response_message.payload)
-            print("Response parsed successfully")
-            
-            # Проверяем ошибку в ответе
-            if hasattr(response, 'errorCode') and response.errorCode != ProtoErrorCode().OK:
-                print(f"Ошибка авторизации: {response.errorCode} - {response.description}")
-            else:
-                print("Авторизация приложения УСПЕШНА!")
-        except Exception as e:
-            print(f"Ошибка при парсинге ответа: {e}")
-            print("Авторизация приложения НЕУДАЧНА")
-    else:
-        print("Ошибка авторизации приложения (неверный тип ответа или ошибка).")
+def on_app_auth_response(client_instance, response_message: ProtoMessage):
+    print("\nApplication Auth Response/Error Received by Deferred callback:")
+    print(f"Raw response payloadType: {response_message.payloadType}")
 
-    # Останавливаем реактор после этого шага для теста
+    extracted_response = Protobuf.extract(response_message)
+    print("Extracted Response Content:")
+    print(extracted_response)
+
+    if response_message.payloadType == ProtoOAApplicationAuthRes().payloadType:
+        auth_res_payload = ProtoOAApplicationAuthRes()
+        try:
+            auth_res_payload.ParseFromString(response_message.payload)
+            print("Авторизация приложения УСПЕШНА (получен и распарсен ProtoOAApplicationAuthRes)!")
+        except Exception as e:
+            print(f"Ошибка при парсинге ProtoOAApplicationAuthRes (хотя тип совпал): {e}")
+            print("Авторизация приложения НЕУДАЧНА.")
+
+    elif isinstance(extracted_response, dict) and "errorCode" in extracted_response:
+        error_code = extracted_response.get("errorCode")
+        error_description = extracted_response.get("description", "No description")
+        print(f"Ошибка авторизации приложения (извлечено из ответа): Код = {error_code}, Описание = {error_description}")
+        if error_code == "CH_CLIENT_AUTH_FAILURE":
+            print(">>> ПОЖАЛУЙСТА, ПЕРЕПРОВЕРЬТЕ ВАШИ Client ID и Client Secret в config.py!")
+            print(">>> Убедитесь, что они для LIVE окружения и АКТИВНЫ на портале cTrader.")
+            print(">>> НАСТОЯТЕЛЬНО РЕКОМЕНДУЕТСЯ СГЕНЕРИРОВАТЬ НОВЫЕ API КЛЮЧИ В ПОРТАЛЕ cTRADER.")
+    else:
+        print(f"Неожиданный тип ответа ({response_message.payloadType}) или структура для запроса авторизации приложения.")
+        print(f"Содержимое payload (hex): {response_message.payload.hex() if response_message.payload else 'N/A'}")
+        print("Авторизация приложения НЕУДАЧНА.")
+
     print("Остановка реактора через 3 секунды...")
     reactor.callLater(3, reactor.stop)
 
 
 def on_connected_callback(client_instance):
     print("\nConnected to cTrader API")
-    request = ProtoOAApplicationAuthReq()
-    request.clientId = APP_CLIENT_ID
-    request.clientSecret = APP_CLIENT_SECRET
-    
-    # Create a message wrapper with the correct structure
-    message = ProtoMessage()
-    message.payloadType = ProtoOAApplicationAuthReq().payloadType
-    message.payload = request.SerializeToString()
-    
-    print(f"Sending App Auth Request: ClientID={request.clientId[0:10]}...")
+
+    auth_request_payload = ProtoOAApplicationAuthReq()
+    auth_request_payload.clientId = APP_CLIENT_ID
+    auth_request_payload.clientSecret = APP_CLIENT_SECRET
+
+    message_to_send = ProtoMessage()
+    message_to_send.payloadType = auth_request_payload.payloadType
+    message_to_send.payload = auth_request_payload.SerializeToString()
+    message_to_send.clientMsgId = f"CustomAuthMsg_{int(time.time())}"
+
+    print(f"Sending App Auth Request (Wrapped in ProtoMessage):")
+    print(f"  Outer ProtoMessage.payloadType: {message_to_send.payloadType}")
+    print(f"  Outer ProtoMessage.clientMsgId: {message_to_send.clientMsgId}")
+    print(f"  Inner ProtoOAApplicationAuthReq.clientId: {auth_request_payload.clientId[0:10] if auth_request_payload.clientId else 'N/A'}...")
 
     try:
-        deferred_obj = client_instance.send(message)
+        deferred_obj = client_instance.send(message_to_send)
         deferred_obj.addCallbacks(
-            lambda response: on_app_auth_response(client_instance, response),
+            callback=lambda response: on_app_auth_response(client_instance, response),
             errback=on_error
         )
     except Exception as e:
-        print(f"Ошибка при отправке запроса авторизации приложения: {e}")
+        print(f"Ошибка при вызове client.send() для запроса авторизации приложения: {e}")
         traceback.print_exc()
         if reactor.running:
             reactor.stop()
@@ -79,42 +90,27 @@ def on_disconnected_callback(client_instance, reason):
     if reactor.running:
         reactor.stop()
 
-def on_generic_message(client_instance, message):
-    # Этот коллбэк будет вызван для сообщений,
-    # у которых нет специфичного коллбэка через Deferred
-    # (например, Heartbeat или ошибки, не связанные с конкретным запросом)
+def on_generic_message(client_instance, message: ProtoMessage):
     payload_type = message.payloadType if hasattr(message, 'payloadType') else "UNKNOWN"
-    print(f"\nGeneric Message Received (Type: {payload_type}):")
-    # Не печатаем все сообщение, может быть слишком много данных
-    # print(Protobuf.extract(message))
 
     if payload_type == ProtoHeartbeatEvent().payloadType:
         print("Received Heartbeat from server. Sending response...")
         try:
-            # Отправляем ответный Heartbeat
             heartbeat_response = ProtoHeartbeatEvent()
-            # heartbeat_response.timestamp = int(time.time() * 1000) # Можно добавить timestamp
-            client_instance.send(heartbeat_response) # Отправляем без ожидания Deferred
+            client_instance.send(heartbeat_response)
         except Exception as e:
             print(f"Error sending heartbeat response: {e}")
             traceback.print_exc()
 
-    # --- ИСПРАВЛЕНИЕ: Убрано "OA" из имени класса ---
     elif payload_type == ProtoErrorRes().payloadType:
-    # ---------------------------------------------
-        error_res = ProtoErrorRes()
-        error_res.ParseFromString(message.payload)
-        print(f"Generic Error Message: {error_res.errorCode} - {error_res.description}")
-        # Можно остановить реактор, если это критическая ошибка
-        # if reactor.running:
-        #     reactor.stop()
-    else:
-        # Печатаем только тип для других сообщений
-        print(f"(Generic message of type {payload_type} received)")
+        pass
 
 
 if __name__ == '__main__':
-    print(f"Attempting to connect to {HOST}:{PORT}")
+    print(f"Attempting to connect to {HOST}:{PORT} using credentials from config.py")
+    print(f"  CLIENT_ID: {APP_CLIENT_ID[:10]}...")
+    # Не печатаем Client Secret в лог
+
     client_api = Client(HOST, PORT, TcpProtocol)
 
     client_api.setConnectedCallback(on_connected_callback)
@@ -129,7 +125,6 @@ if __name__ == '__main__':
         traceback.print_exc()
         exit()
 
-
     print("Starting Twisted reactor...")
     try:
         reactor.run()
@@ -138,8 +133,6 @@ if __name__ == '__main__':
         traceback.print_exc()
     finally:
         print("Reactor stopped.")
-        # Убедимся, что сервис клиента остановлен, если он еще работает
-        # Проверяем isConnected как свойство
         if client_api and hasattr(client_api, 'isConnected') and client_api.isConnected:
             print("Stopping client service on exit...")
             try:
@@ -148,7 +141,6 @@ if __name__ == '__main__':
                 print(f"Error stopping client service on exit: {e}")
                 traceback.print_exc()
         elif client_api:
-             print("Client exists but is not connected. No need to stop service.")
+             print("Client exists but is not connected. No need to stop service (already stopped or failed to start).")
         else:
              print("Client object does not exist.")
-
