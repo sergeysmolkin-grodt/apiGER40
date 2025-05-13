@@ -10,7 +10,7 @@ CLIENT_SECRET = "FFgevKzzYTHKWeHml.jwwl9zCWMgMEeGj0taqzmW44G8L8HSWxs" # Вста
 ACCOUNT_ID = "7377598" # Вставьте номер вашего торгового счета
 
 # --- Торговые параметры ---
-SYMBOL = "GER40" # Или точное название символа в вашем брокере
+SYMBOL = "GER40.cash" # Или точное название символа в вашем брокере
 TIMEFRAME_CONTEXT_H4 = "H4"
 TIMEFRAME_CONTEXT_H1 = "H1"
 TIMEFRAME_ENTRY = "M1" # Таймфрейм для получения актуальной цены (можно H1)
